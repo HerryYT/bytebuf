@@ -45,14 +45,10 @@ impl ByteBuf {
   /// u32 is enough, i64 is too much even for general use
   pub fn set_capacity(&mut self, size: u32) {
     if (size as usize) < self.buf.capacity() {
+      self.buf.shrink_to(size as usize);
       unsafe {
-        // We may not need to free random bytes we don't care
-        // we aren't allocating any vector / structure
-        // but i'm not sure if it causes memory leaks
         self.buf.set_len(size as usize)
       }
-      // self.buf.truncate(size as usize);
-      self.buf.shrink_to(size as usize);
       return
     }
     // TODO: might be better to use try_reserve_exact
