@@ -5,6 +5,7 @@
 
 export class ByteBuf {
   constructor(buf?: Buffer | undefined | null)
+  static withInitialCapacity(initialCapacity: number): ByteBuf
   clear(): void
   /** Returns the number of bytes this buffer can contain */
   getCapacity(): number
@@ -27,6 +28,7 @@ export class ByteBuf {
   readUnsignedShort(): number
   readUnsignedShortLE(): number
   readMedium(): number
+  writeByte(val: number): void
   writeMedium(val: number): void
   setReaderIndex(index: number): void
   getReaderIndex(): number

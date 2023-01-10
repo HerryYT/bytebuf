@@ -29,13 +29,15 @@ impl ByteBuf {
     }
   }
 
-  // TODO
-  // #[napi(factory)]
-  // pub fn with_initial_capacity() -> Self {
-  //  ByteBuf {
-  //    buf: Vec::with_capacity()
-  //  }
-  // }
+  #[napi(factory)]
+  pub fn with_initial_capacity(initial_capacity: u32) -> Self {
+    ByteBuf {
+      buf: Vec::with_capacity(initial_capacity as usize),
+      r_pos: 0,
+      w_pos: 0,
+      r_only: false
+    }
+  }
 
   #[napi]
   pub fn clear(&mut self) {
@@ -73,7 +75,9 @@ impl ByteBuf {
 
   #[napi]
   pub fn is_writeable(&self, size: Option<u32>) -> bool {
-    if size.is_none() {
+    if self.r_only {
+      return false
+    } else if size.is_none() {
       return self.buf.capacity() - self.w_pos > 0
     }
     return self.buf.capacity() >= size.unwrap() as usize
@@ -107,12 +111,15 @@ impl ByteBuf {
 
   #[napi]
   pub fn get_writable_bytes(&self) -> u32 {
+    if self.r_only {
+      return 0;
+    }
     return (self.buf.capacity() - self.w_pos) as u32
   }
 
   #[napi]
   pub fn skip_bytes(&mut self, length: u32) -> Result<(), Error> {
-    if length > self.get_writable_bytes() {
+    if length > self.get_readable_bytes() {
       return Err(Error::new(Status::InvalidArg, format!("cannot skipBytes, given length {} is greater than readableBytes {}", length, self.get_readable_bytes())))
     }
     self.r_pos += length as usize;
@@ -197,7 +204,7 @@ impl ByteBuf {
   }
 
   #[napi]
-  pub fn write_byte(&mut self, val: i8) -> Result<(), Error> {
+  pub fn write_byte(&mut self, val: i32) -> Result<(), Error> {
     self.buf.push(val as u8);
     Ok(())
   }
@@ -237,6 +244,7 @@ impl ByteBuf {
   // pub fn get_max_capacity() -> isize {
   //  return isize::MAX;
   // }
+
   #[napi]
   pub fn set_writer_index(&mut self, index: u32) -> Result<(), Error> {
     if (index as usize) < self.r_pos {
