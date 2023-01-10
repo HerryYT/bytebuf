@@ -29,20 +29,28 @@ impl ByteBuf {
     }
   }
 
+  // TODO
+  // #[napi(factory)]
+  // pub fn with_initial_capacity() -> Self {
+  //  ByteBuf {
+  //    buf: Vec::with_capacity()
+  //  }
+  // }
+
   #[napi]
   pub fn clear(&mut self) {
     self.r_pos = 0;
     self.w_pos = 0;
   }
 
-  #[napi]
   /// Returns the number of bytes this buffer can contain
+  #[napi]
   pub fn get_capacity(&self) -> u32 {
     return self.buf.capacity() as u32
   }
 
-  #[napi]
   /// u32 is enough, i64 is too much even for general use
+  #[napi]
   pub fn set_capacity(&mut self, size: u32) {
     if (size as usize) < self.buf.capacity() {
       self.buf.shrink_to(size as usize);
@@ -86,8 +94,8 @@ impl ByteBuf {
     }
   }
 
-  #[napi]
   /// Involves copying, use with caution
+  #[napi]
   pub fn get_array(&self) -> Uint8Array {
     return Uint8Array::new(self.buf.clone())
   }
@@ -189,6 +197,12 @@ impl ByteBuf {
   }
 
   #[napi]
+  pub fn write_byte(&mut self, val: i8) -> Result<(), Error> {
+    self.buf.push(val as u8);
+    Ok(())
+  }
+
+  #[napi]
   pub fn write_medium(&mut self, val: i32) {
     // TODO
     // bytes.push((num >> 16) as u8);
@@ -223,7 +237,6 @@ impl ByteBuf {
   // pub fn get_max_capacity() -> isize {
   //  return isize::MAX;
   // }
-
   #[napi]
   pub fn set_writer_index(&mut self, index: u32) -> Result<(), Error> {
     if (index as usize) < self.r_pos {
@@ -255,5 +268,3 @@ impl ByteBuf {
     Ok(())
   }
 }
-
-

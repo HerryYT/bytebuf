@@ -70,6 +70,9 @@ test('test read byte and boolean', (t) => {
   const buf2 = new ByteBuf(Buffer.from([0x80]));
   t.is(buf2.readByte(), -0x80);
 
+  const buf2 = new ByteBuf(Buffer.from([240]));
+  t.is(buf2.readByte(), -16);
+
   // Test boolean, anything not 0 is true
   const buf3 = new ByteBuf(Buffer.from([0x7f]));
   t.is(buf3.readBoolean(), true);
