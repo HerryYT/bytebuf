@@ -6,6 +6,7 @@
 export class ByteBuf {
   constructor(buf?: Buffer | undefined | null)
   static withInitialCapacity(initialCapacity: number): ByteBuf
+  static fromByteArray(byteArray: Array<number>): ByteBuf
   clear(): void
   /** Returns the number of bytes this buffer can contain */
   getCapacity(): number
@@ -17,6 +18,8 @@ export class ByteBuf {
   static asReadOnly(): ByteBuf
   /** Involves copying, use with caution */
   getArray(): Uint8Array
+  /** Returns the buffer, zero-copy :) */
+  getBuffer(): Buffer
   getReadableBytes(): number
   getWritableBytes(): number
   skipBytes(length: number): void
@@ -33,6 +36,7 @@ export class ByteBuf {
   setReaderIndex(index: number): void
   getReaderIndex(): number
   /** TODO: not implemented */
+  discardReadBytes(): void
   setWriterIndex(index: number): void
   getWriterIndex(): number
   setIndex(rIndex: number, wIndex: number): void

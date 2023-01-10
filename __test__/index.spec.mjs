@@ -75,11 +75,12 @@ test('test read byte and boolean', (t) => {
 
   const buf4 = new ByteBuf();
   buf4.writeByte(240);
-  t.is(buf4.readByte(), -16);
+  const buf5 = new ByteBuf(buf4.getArray());
+  t.is(buf5.readByte(), -16);
 
   // Test boolean, anything not 0 is true
-  const buf5 = new ByteBuf(Buffer.from([0x7f]));
-  t.is(buf5.readBoolean(), true);
+  const buf6 = new ByteBuf(Buffer.from([0x7f]));
+  t.is(buf6.readBoolean(), true);
 })
 
 // test('test read short', (t) => {
