@@ -12,16 +12,11 @@ export class ByteBuf {
   getCapacity(): number
   /** u32 is enough, i64 is too much even for general use */
   setCapacity(size: number): void
-  isReadable(size?: number | undefined | null): boolean
-  isWriteable(size?: number | undefined | null): boolean
-  isReadOnly(): boolean
-  static asReadOnly(): ByteBuf
   /** Involves copying, use with caution */
   getArray(): Uint8Array
   /** Returns the buffer, zero-copy :) */
   getBuffer(): Buffer
   getReadableBytes(): number
-  getWritableBytes(): number
   skipBytes(length: number): void
   readBoolean(): boolean
   readByte(): number
@@ -31,12 +26,13 @@ export class ByteBuf {
   readUnsignedShort(): number
   readUnsignedShortLE(): number
   readMedium(): number
+  writeBoolean(val: boolean): void
+  /** Writes both a signed / unsigned byte */
   writeByte(val: number): void
+  writeShort(val: number): void
   writeMedium(val: number): void
   setReaderIndex(index: number): void
   getReaderIndex(): number
-  /** TODO: not implemented */
-  discardReadBytes(): void
   setWriterIndex(index: number): void
   getWriterIndex(): number
   setIndex(rIndex: number, wIndex: number): void

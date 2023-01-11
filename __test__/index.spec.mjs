@@ -9,32 +9,11 @@ test('test byte buffer creation', (t) => {
 
 test('test byte buffer capacity', (t) => {
   const buf = new ByteBuf();
-
-  // Test writing with 0 capacity
-  t.is(buf.getCapacity(), 0);
-  t.is(buf.isWriteable(), false);
-  t.is(buf.isWriteable(5), false);
-
-  // Test writing with 5 bytes capacity
-  buf.setCapacity(5);
-  t.is(buf.getCapacity(), 5);
-  t.is(buf.isWriteable(), true);
-  t.is(buf.isWriteable(5), true);
-  // Test exceeding buffer capacity
-  t.is(buf.isWriteable(6), false);
-
   buf.setCapacity(3);
   t.is(buf.getCapacity(), 3);
 
   const buf2 = new ByteBuf(Buffer.allocUnsafe(4));
   t.is(buf2.getCapacity(), 4);
-})
-
-test('test byte buffer readability', (t) => {
-  const buf = new ByteBuf(Buffer.alloc(5));
-  t.is(buf.isReadable(), true);
-  t.is(buf.isReadable(6), false);
-  t.is(buf.isReadable(5), true);
 })
 
 test('test byte buffer set indexes', (t) => {
@@ -83,10 +62,11 @@ test('test read byte and boolean', (t) => {
   t.is(buf6.readBoolean(), true);
 })
 
-// test('test read short', (t) => {
-  // const buf = new ByteBuf(Buffer.from([0x7f]));
-  // t.is(buf.readByte(), 0x7f);
-// })
+test('test read short', (t) => {
+  const buf = ByteBuf.withInitialCapacity(2);
+  buf.writeShort(54);
+  t.is(buf.readShort(), 54);
+})
 
 // test('test read triad', (t) => {
   // const buf = new ByteBuf(Buffer.from([0x80, 0x00, 0x00]));

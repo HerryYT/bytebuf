@@ -2,7 +2,7 @@
 
 use napi::bindgen_prelude::Uint8Array;
 use napi::{bindgen_prelude::Buffer, Error, Status};
-use std::mem::size_of;
+use napi::Status::GenericFailure;
 
 #[macro_use]
 extern crate napi_derive;
@@ -12,7 +12,6 @@ pub struct ByteBuf {
   buf: Vec<u8>,
   r_pos: usize,
   w_pos: usize,
-  r_only: bool,
 }
 
 #[napi]
@@ -24,7 +23,6 @@ impl ByteBuf {
       w_pos: vec.len(),
       buf: vec,
       r_pos: 0,
-      r_only: false,
     }
   }
 
@@ -34,7 +32,6 @@ impl ByteBuf {
       buf: Vec::with_capacity(initial_capacity as usize),
       r_pos: 0,
       w_pos: 0,
-      r_only: false,
     }
   }
 
@@ -44,12 +41,12 @@ impl ByteBuf {
       w_pos: byte_array.len(),
       buf: byte_array,
       r_pos: 0,
-      r_only: false
     }
   }
 
   #[napi]
   pub fn clear(&mut self) {
+    self.buf.clear();
     self.r_pos = 0;
     self.w_pos = 0;
   }
@@ -72,39 +69,6 @@ impl ByteBuf {
     self.buf.reserve_exact(size as usize - self.buf.capacity())
   }
 
-  #[napi]
-  pub fn is_readable(&self, size: Option<u32>) -> bool {
-    if size.is_none() {
-      return self.w_pos - self.r_pos > 0;
-    }
-    self.buf.len() >= size.unwrap() as usize
-  }
-
-  #[napi]
-  pub fn is_writeable(&self, size: Option<u32>) -> bool {
-    if self.r_only {
-      return false;
-    } else if size.is_none() {
-      return self.buf.capacity() - self.w_pos > 0;
-    }
-    self.buf.capacity() >= size.unwrap() as usize
-  }
-
-  #[napi]
-  pub fn is_read_only(&self) -> bool {
-    self.r_only
-  }
-
-  #[napi(factory)]
-  pub fn as_read_only(&self) -> ByteBuf {
-    Self {
-      buf: self.buf.clone(),
-      r_pos: 0,
-      w_pos: 0,
-      r_only: true,
-    }
-  }
-
   /// Involves copying, use with caution
   #[napi]
   pub fn get_array(&self) -> Uint8Array {
@@ -120,14 +84,6 @@ impl ByteBuf {
   #[napi]
   pub fn get_readable_bytes(&self) -> u32 {
     (self.w_pos - self.r_pos) as u32
-  }
-
-  #[napi]
-  pub fn get_writable_bytes(&self) -> u32 {
-    if self.r_only {
-      return 0;
-    }
-    (self.buf.capacity() - self.w_pos) as u32
   }
 
   #[napi]
@@ -148,12 +104,6 @@ impl ByteBuf {
 
   // READ METHODS
 
-  fn get_and_set_pos<T>(pos: &mut usize) -> usize {
-    let size = size_of::<T>();
-    *pos += &size;
-    *pos - size
-  }
-
   #[napi]
   pub fn read_boolean(&mut self) -> Result<bool, Error> {
     // TODO: Waiting for stable is_ok_and
@@ -162,43 +112,46 @@ impl ByteBuf {
       return Ok(res.unwrap() != 0);
     }
     Err(Error::new(
-      Status::GenericFailure,
+      GenericFailure,
       "cannot readBoolean, readableBytes is less than 1".to_string(),
     ))
   }
 
   #[napi]
   pub fn read_byte(&mut self) -> Result<i32, Error> {
-    if (self.get_readable_bytes() as usize) < size_of::<i8>() {
+    if self.get_readable_bytes() < 1 {
       return Err(Error::new(
-        Status::GenericFailure,
+        GenericFailure,
         "cannot readByte, readableBytes is less than 1".to_string(),
       ));
     }
-    Ok(i8::from_be_bytes([self.buf[ByteBuf::get_and_set_pos::<i8>(&mut self.r_pos)]]) as i32)
+    self.r_pos += 1;
+    Ok(self.buf[self.r_pos - 1] as i8 as i32)
   }
 
   #[napi]
   pub fn read_unsigned_byte(&mut self) -> Result<u32, Error> {
-    if (self.get_readable_bytes() as usize) < size_of::<u8>() {
+    if self.get_readable_bytes() < 1 {
       return Err(Error::new(
-        Status::GenericFailure,
+        GenericFailure,
         "cannot readUnsignedByte, readableBytes is less than 1".to_string(),
       ));
     }
-    Ok(u8::from_be_bytes([self.buf[ByteBuf::get_and_set_pos::<u8>(&mut self.r_pos)]]) as u32)
+    self.r_pos += 1;
+    Ok(self.buf[self.r_pos - 1] as u32)
   }
 
   #[napi]
   pub fn read_short(&mut self) -> Result<i32, Error> {
-    if (self.get_readable_bytes() as usize) < size_of::<i16>() {
+    if self.get_readable_bytes() < 2 {
       return Err(Error::new(
-        Status::GenericFailure,
+        GenericFailure,
         "cannot readShort, readableBytes is less than 2".to_string(),
       ));
     }
+    self.r_pos += 2;
     Ok(i16::from_be_bytes(
-      self.buf[ByteBuf::get_and_set_pos::<i16>(&mut self.r_pos)..(self.r_pos + 2)]
+      self.buf[self.r_pos - 2..self.r_pos]
         .try_into()
         .unwrap(),
     ) as i32)
@@ -206,14 +159,15 @@ impl ByteBuf {
 
   #[napi(js_name = "readShortLE")]
   pub fn read_short_le(&mut self) -> Result<i32, Error> {
-    if (self.get_readable_bytes() as usize) < size_of::<i16>() {
+    if self.get_readable_bytes() < 2 {
       return Err(Error::new(
-        Status::GenericFailure,
+        GenericFailure,
         "cannot readShortLE, readableBytes is less than 2".to_string(),
       ));
     }
+    self.r_pos += 2;
     Ok(i16::from_le_bytes(
-      self.buf[ByteBuf::get_and_set_pos::<i16>(&mut self.r_pos)..(self.r_pos + 2)]
+      self.buf[self.r_pos - 2..self.r_pos]
         .try_into()
         .unwrap(),
     ) as i32)
@@ -221,14 +175,15 @@ impl ByteBuf {
 
   #[napi]
   pub fn read_unsigned_short(&mut self) -> Result<u32, Error> {
-    if (self.get_readable_bytes() as usize) < size_of::<u16>() {
+    if self.get_readable_bytes() < 2 {
       return Err(Error::new(
-        Status::GenericFailure,
+        GenericFailure,
         "cannot readUnsignedShort, readableBytes is less than 2".to_string(),
       ));
     }
+    self.r_pos += 2;
     Ok(u16::from_be_bytes(
-      self.buf[ByteBuf::get_and_set_pos::<u16>(&mut self.r_pos)..(self.r_pos + 2)]
+      self.buf[self.r_pos - 2..self.r_pos]
         .try_into()
         .unwrap(),
     ) as u32)
@@ -236,14 +191,15 @@ impl ByteBuf {
 
   #[napi(js_name = "readUnsignedShortLE")]
   pub fn read_unsigned_short_le(&mut self) -> Result<u32, Error> {
-    if (self.get_readable_bytes() as usize) < size_of::<u16>() {
+    if self.get_readable_bytes() < 2 {
       return Err(Error::new(
-        Status::GenericFailure,
+        GenericFailure,
         "cannot readUnsignedShortLE, readableBytes is less than 2".to_string(),
       ));
     }
+    self.r_pos += 2;
     Ok(u16::from_le_bytes(
-      self.buf[ByteBuf::get_and_set_pos::<u16>(&mut self.r_pos)..(self.r_pos + 2)]
+      self.buf[self.r_pos - 2..self.r_pos]
         .try_into()
         .unwrap(),
     ) as u32)
@@ -251,9 +207,9 @@ impl ByteBuf {
 
   #[napi]
   pub fn read_medium(&mut self) -> Result<i32, Error> {
-    if (self.get_readable_bytes() as usize) < 3 {
+    if self.get_readable_bytes() < 3 {
       return Err(Error::new(
-        Status::GenericFailure,
+        GenericFailure,
         "cannot readMedium, readableBytes is less than 3".to_string(),
       ));
     }
@@ -263,12 +219,40 @@ impl ByteBuf {
     // Ok((res[0] & 0xFF | ((res[2] & 0xFF) << 8) | ((res[3] & 0x0F) << 16)) as i32)
   }
 
-  #[napi]
-  pub fn write_byte(&mut self, val: i32) -> Result<(), Error> {
-    self.buf.push(val as u8);
-    Ok(())
+  /// Appends data to the end of the buffer
+  /// tries to max out performance by using
+  /// direct memory pointers in a unsafe context
+  /// implies minimal copy.
+  pub fn write_bytes(&mut self, buf: &[u8]) {
+    let len = buf.len();
+    self.buf.reserve(len);
+    unsafe {
+      std::ptr::copy(buf.as_ptr(), self.buf.as_mut_ptr(), len);
+      self.buf.set_len(len);
+    }
+
+    // self.buf.extend_from_slice(buf);
+    self.w_pos += buf.len();
   }
 
+  #[napi]
+  pub fn write_boolean(&mut self, val: bool) {
+    self.write_byte(val as i32);
+  }
+
+  /// Writes both a signed / unsigned byte
+  #[napi]
+  pub fn write_byte(&mut self, val: i32) {
+    self.buf.push(val as u8);
+    self.w_pos += 1;
+  }
+
+  #[napi]
+  pub fn write_short(&mut self, val: i32) {
+    self.write_bytes(&(val as i16).to_be_bytes());
+  }
+
+  // TODO
   #[napi]
   pub fn write_medium(&mut self, val: i32) {
     // TODO
@@ -304,12 +288,6 @@ impl ByteBuf {
   pub fn get_reader_index(&self) -> u32 {
     self.r_pos as u32
   }
-
-  // #[napi]
-  /// TODO: not implemented
-  // pub fn get_max_capacity() -> isize {
-  //  return isize::MAX;
-  // }
 
   /* #[napi]
   pub fn discard_read_bytes(&mut self) {
